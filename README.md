@@ -2,6 +2,8 @@
 
 Like CounterCache of ActiveRecord or Mongoid, but with category.
 
+[![Build Status](https://travis-ci.com/flanker/mongoid-categorized_counter_cache.svg?branch=master)](https://travis-ci.com/flanker/mongoid-categorized_counter_cache)
+
 ## Installation
 
 Add this line to your application's Gemfile:
