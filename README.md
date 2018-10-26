@@ -1,8 +1,6 @@
 # Mongoid::CategorizedCounterCache
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/mongoid/categorized_counter_cache`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+Like CounterCache of ActiveRecord or Mongoid, but with category.
 
 ## Installation
 
@@ -22,7 +20,144 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+### Counter categories by a field value
+
+```
+# User class
+categorized_counter_cache :RELATION, by: :CATEGORY_FILED
+```
+
+For example, you have a `company` and `user` relationship. With normal `CounterCache` it is easy to cache the number of users on a company.
+
+But if we want to cache the counter of `active_users` and `inactive_users`, we could use `Mongoid::CategorizedCounterCache` to setup the counter cache with the category field (`status` in this case)
+
+The code will be like:
+
+```
+class Company
+  include Mongoid::Document
+  include Mongoid::Attributes::Dynamic
+
+  field :users_count, type: Integer, default: 0
+  field :users_active_count, type: Integer, default: 0
+  field :users_inactive_count, type: Integer, default: 0
+
+  embeds_many :users
+end
+
+class User
+  include Mongoid::Document
+  include Mongoid::CategorizedCounterCache
+
+  field :name
+  field :status    # active, inactive
+
+  belongs_to :company, counter_cache: true
+  categorized_counter_cache :company, by: :gender
+end
+```
+
+#### When create a user
+
+```
+user = User.create company: company, status: :active
+
+company.users_active_count # => old_value + 1
+```
+
+#### When update a user
+
+```
+user = User.create company: company, status: :active
+user.update_attributes status: :inactive
+
+company.users_active_count # => old_value - 1
+company.users_inactive_count # => old_value + 1
+```
+
+#### When update the relation
+
+```
+user = User.create company: company, status: :active
+user.update_attributes company: :another_company
+
+company.users_active_count # => old_value - 1
+another_company.users_active_count # => old_value + 1
+```
+
+#### When delete a user 
+
+```
+user = User.create company: company, status: :active
+user.destroy
+
+company.users_active_count # => old_value - 1
+```
+
+### Counter categories by a relation
+
+You can specify the category by a field from a relation.
+
+```
+# User class
+categorized_counter_cache :company, by: 'city.region'
+```
+
+For example:
+
+```
+module CategoryAsRelation
+
+  class Company
+    include Mongoid::Document
+
+    field :users_count, type: Integer, default: 0
+    field :users_west_count, type: Integer, default: 0
+    field :users_east_count, type: Integer, default: 0
+
+    has_many :users
+  end
+
+  class City
+    include Mongoid::Document
+
+    field :name
+    field :region    # west, east
+
+  end
+
+  class User
+    include Mongoid::Document
+    include Mongoid::CategorizedCounterCache
+
+    field :status    # active, inactive
+
+    belongs_to :city
+
+    belongs_to :company, counter_cache: true
+    categorized_counter_cache :company, by: 'city.region'
+  end
+
+end
+```
+
+In this case, `company` has counter cache of different categories of users. And the cateogry is from city's region to which user belongs.
+
+### Other options
+
+You can user category as a prefix in the counter cache field name:
+
+```
+# User class
+categorized_counter_cache :company, by: :status, prefix: true
+```
+
+And the counter cache field will be:
+
+```
+field :active_users_count, type: Integer, default: 0
+field :inactive_users_count, type: Integer, default: 0
+```
 
 ## Development
 
@@ -32,7 +167,7 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/mongoid-categorized_counter_cache.
+Bug reports and pull requests are welcome on GitHub at https://github.com/flanker/mongoid-categorized_counter_cache.
 
 ## License
 
